@@ -5,33 +5,38 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 export async function createCheckoutSession(priceId: string): Promise<void> {
   try {
-    // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError) throw new Error('Authentication error');
     if (!user) throw new Error('User not authenticated');
 
-    // Call Supabase Edge Function
-    const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-      body: {
+    // Call the Stripe checkout function directly
+    const response = await fetch('https://bhrtzvhujqfwoznxidqu.functions.supabase.co/stripe-checkout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+      },
+      body: JSON.stringify({
         priceId,
         userId: user.id,
         customerEmail: user.email,
         returnUrl: `${window.location.origin}/dashboard`,
-        cancelUrl: `${window.location.origin}/pricing`,
-      }
+        cancelUrl: `${window.location.origin}/pricing`
+      })
     });
 
-    if (error) throw new Error(error.message);
-    if (!data?.sessionId) throw new Error('No session ID returned');
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to create checkout session');
+    }
 
-    // Load Stripe
+    const { sessionId } = await response.json();
+    if (!sessionId) throw new Error('No session ID returned');
+
     const stripe = await stripePromise;
     if (!stripe) throw new Error('Stripe failed to load');
 
-    // Redirect to checkout
-    const { error: redirectError } = await stripe.redirectToCheckout({ 
-      sessionId: data.sessionId 
-    });
+    const { error: redirectError } = await stripe.redirectToCheckout({ sessionId });
     if (redirectError) throw redirectError;
 
   } catch (error) {

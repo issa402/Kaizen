@@ -6,6 +6,19 @@ import { Save, ArrowLeft } from 'lucide-react';
 import { MoodSelector, type Mood } from '../components/MoodSelector';
 import { CrossIcon } from '../components/CrossIcon';
 
+const MOTIVATIONAL_MESSAGES = [
+  "Let's crush these goals! 💪",
+  "You're on fire! Keep going! 🔥",
+  "Small steps, big results! 🌟",
+  "Today is your day! ⭐",
+  "You've got this! 🎯",
+  "Making progress every day! 📈",
+  "Keep pushing forward! 🚀",
+  "Excellence in motion! ✨",
+  "Building your legacy! 👑",
+  "Unstoppable momentum! 💫"
+];
+
 export default function NewEntry() {
   const [mood, setMood] = useState<Mood | null>(null);
   const [spiritualGoals, setSpiritualGoals] = useState('');
@@ -13,6 +26,7 @@ export default function NewEntry() {
   const [physicalGoals, setPhysicalGoals] = useState('');
   const [learnings, setLearnings] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -55,7 +69,15 @@ export default function NewEntry() {
         }]);
 
       if (insertError) throw insertError;
-      navigate('/dashboard');
+      
+      // Show random motivational message
+      const randomMessage = MOTIVATIONAL_MESSAGES[Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length)];
+      setSuccess(randomMessage);
+      
+      // Navigate after a short delay to show the message
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create entry');
     } finally {
@@ -80,6 +102,12 @@ export default function NewEntry() {
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
               {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6 text-center text-lg font-medium animate-bounce">
+              {success}
             </div>
           )}
 

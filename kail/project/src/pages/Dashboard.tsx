@@ -8,6 +8,8 @@ import type { Mood } from '../components/MoodSelector';
 import { DashboardStats } from '../components/DashboardStats';
 import { ProgressChart } from '../components/ProgressChart';
 import { JournalCheckboxes } from '../components/JournalCheckboxes';
+import { DailyIdeas } from '../components/DailyIdeas';
+import { TimeTracker } from '../components/TimeTracker';
 import { useJournalStats } from '../hooks/useJournalStats';
 
 interface JournalEntry {
@@ -37,14 +39,28 @@ const moods: Record<Mood, string> = {
 
 export default function Dashboard() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [username, setUsername] = useState<string>('');
   const { user } = useAuth();
   const stats = useJournalStats();
 
   useEffect(() => {
     if (user) {
       fetchEntries();
+      fetchUsername();
     }
   }, [user]);
+
+  const fetchUsername = async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', user?.id)
+      .single();
+
+    if (!error && data) {
+      setUsername(data.username);
+    }
+  };
 
   const fetchEntries = async () => {
     const { data, error } = await supabase
@@ -69,7 +85,9 @@ export default function Dashboard() {
     <div className="min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Your Journey</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {username}'s Journey
+          </h1>
           <Link
             to="/new-entry"
             className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
@@ -87,6 +105,10 @@ export default function Dashboard() {
         }} />
 
         <ProgressChart data={stats.weeklyProgress} />
+        
+        <TimeTracker />
+        
+        <DailyIdeas />
 
         <div className="space-y-6">
           {entries.map((entry) => (
