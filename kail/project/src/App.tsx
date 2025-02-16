@@ -12,6 +12,7 @@ import NewEntry from './pages/NewEntry';
 import InspirationFeed from './pages/InspirationFeed';
 import LongTermGoals from './pages/LongTermGoals';
 import Pricing from './pages/Pricing';
+import CalendarPage from './pages/CalendarPage';
 
 export default function App() {
   return (
@@ -46,6 +47,15 @@ export default function App() {
                 <AuthGuard>
                   <Navigation />
                   <InspirationFeed />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/calendar"
+              element={
+                <AuthGuard>
+                  <Navigation />
+                  <CalendarPage />
                 </AuthGuard>
               }
             />

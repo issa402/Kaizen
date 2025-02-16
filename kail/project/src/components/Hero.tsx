@@ -10,11 +10,11 @@ export function Hero() {
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
         <div className="text-center">
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            Improve 1% Every Day
-            <span className="block text-indigo-200 mt-2">Transform Your Life with Kaizen</span>
+            Improve 1% Every Day Low Key on The Low
+            <span className="block text-indigo-200 mt-2"> With Kaizen Journal</span>
           </h1>
           <p className="text-xl md:text-2xl text-indigo-100 mb-8 max-w-3xl mx-auto">
-            Join thousands achieving extraordinary results through small, daily improvements.
+            Join for calm results through small, daily improvements.
             The #1 journal for continuous self-improvement.
           </p>
           <Link

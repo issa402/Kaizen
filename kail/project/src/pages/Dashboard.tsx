@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { PlusCircle, BookOpen } from 'lucide-react';
+import { PlusCircle, BookOpen, Calendar as CalendarIcon } from 'lucide-react';
 import type { Mood } from '../components/MoodSelector';
 import { DashboardStats } from '../components/DashboardStats';
 import { ProgressChart } from '../components/ProgressChart';
@@ -88,13 +88,22 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold text-gray-900">
             {username}'s Journey
           </h1>
-          <Link
-            to="/new-entry"
-            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          >
-            <PlusCircle className="w-5 h-5 mr-2" />
-            New Entry
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              to="/new-entry"
+              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+            >
+              <PlusCircle className="w-5 h-5 mr-2" />
+              New Entry
+            </Link>
+            <Link
+              to="/calendar"
+              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+            >
+              <CalendarIcon className="w-5 h-5 mr-2" />
+              Calendar
+            </Link>
+          </div>
         </div>
 
         <DashboardStats stats={{

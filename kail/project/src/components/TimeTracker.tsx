@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { format, parseISO, differenceInMinutes } from 'date-fns';
-import { Clock, Play, Square, Plus, X, Calendar } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { format, parseISO, differenceInMinutes, addMinutes } from 'date-fns';
+import { Clock, Play, Plus, X, Calendar, Check, Pause } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
-interface TimeEntry {
+
+export interface TimeEntry {
   id: string;
   activity: string;
   start_time: string;
   end_time: string;
-  status: 'planned' | 'in_progress' | 'completed';
+  status: 'planned' | 'in_progress' | 'paused' | 'completed';
   date: string;
 }
 
@@ -20,17 +21,12 @@ export function TimeTracker() {
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [newActivity, setNewActivity] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
+  const [durationHours, setDurationHours] = useState(0);
+  const [durationMinutes, setDurationMinutes] = useState(30);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [remainingTimes, setRemainingTimes] = useState<{ [key: string]: number }>({});
 
-  useEffect(() => {
-    if (user) {
-      fetchEntries();
-    }
-  }, [user, selectedDate]);
-
-  const fetchEntries = async () => {
+  const fetchEntries = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('time_tracking')
@@ -47,13 +43,46 @@ export function TimeTracker() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id, selectedDate]);
+
+  useEffect(() => {
+    if (user) {
+      fetchEntries();
+    }
+  }, [user, selectedDate, fetchEntries]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const newRemainingTimes = entries.reduce((acc, entry) => {
+        if (entry.status === 'in_progress') {
+          const end = new Date(entry.end_time).getTime();
+          acc[entry.id] = Math.max(0, end - now);
+        } else if (entry.status === 'paused') {
+          acc[entry.id] = remainingTimes[entry.id] || 0;
+        }
+        return acc;
+      }, {} as { [key: string]: number });
+      setRemainingTimes(newRemainingTimes);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [entries, remainingTimes]);
 
   const addEntry = async () => {
-    if (!newActivity || !startTime || !endTime) {
-      setError('Please fill in all fields');
+    if (!newActivity) {
+      setError('Please enter an activity');
       return;
     }
+
+    const totalMinutes = (durationHours * 60) + durationMinutes;
+    if (totalMinutes <= 0) {
+      setError('Please enter a valid duration');
+      return;
+    }
+
+    const startTime = new Date();
+    const endTime = addMinutes(startTime, totalMinutes);
 
     try {
       const { error } = await supabase
@@ -61,17 +90,17 @@ export function TimeTracker() {
         .insert([{
           user_id: user?.id,
           activity: newActivity,
-          start_time: `${selectedDate}T${startTime}:00`,
-          end_time: `${selectedDate}T${endTime}:00`,
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
           date: selectedDate,
           status: 'planned'
         }]);
 
       if (error) throw error;
-
+      
       setNewActivity('');
-      setStartTime('');
-      setEndTime('');
+      setDurationHours(0);
+      setDurationMinutes(30);
       setShowForm(false);
       fetchEntries();
     } catch (err) {
@@ -80,18 +109,44 @@ export function TimeTracker() {
     }
   };
 
-  const updateStatus = async (id: string, status: 'planned' | 'in_progress' | 'completed') => {
+  const updateStatus = async (id: string, status: 'planned' | 'in_progress' | 'paused' | 'completed') => {
     try {
+      const entry = entries.find(e => e.id === id);
+      if (!entry) {
+        throw new Error('Entry not found');
+      }
+
+      let updates: Partial<TimeEntry> = { status };
+      const now = Date.now();
+
+      // Handle pause: calculate remaining time and update end_time
+      if (status === 'paused') {
+        const remaining = new Date(entry.end_time).getTime() - now;
+        updates.end_time = new Date(now + Math.max(0, remaining)).toISOString();
+      }
+      
+      // Handle resume: use stored remaining time or calculate from end_time
+      if (status === 'in_progress' && entry.status === 'paused') {
+        const remaining = remainingTimes[id] || (new Date(entry.end_time).getTime() - now);
+        updates.end_time = new Date(now + Math.max(0, remaining)).toISOString();
+      }
+
+      console.log('Updating entry:', { id, updates });
+      
       const { error } = await supabase
         .from('time_tracking')
-        .update({ status })
+        .update(updates)
         .eq('id', id);
 
-      if (error) throw error;
-      fetchEntries();
+      if (error) {
+        console.error('Supabase update error:', error);
+        throw error;
+      }
+
+      await fetchEntries();
     } catch (err) {
-      console.error('Error updating status:', err);
-      setError('Failed to update status');
+      console.error('Error in updateStatus:', err);
+      setError(`Failed to update status: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -117,10 +172,26 @@ export function TimeTracker() {
     return `${hours}h ${remainingMinutes}m`;
   };
 
+  const getDurationDisplay = (entry: TimeEntry) => {
+    if (entry.status === 'in_progress' && remainingTimes[entry.id]) {
+      const totalSeconds = Math.floor(remainingTimes[entry.id] / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+    }
+    if (entry.status === 'paused' && remainingTimes[entry.id]) {
+      const totalMinutes = Math.floor(remainingTimes[entry.id] / 1000 / 60);
+      const seconds = Math.floor((remainingTimes[entry.id] / 1000) % 60);
+      return `${totalMinutes}m ${seconds}s remaining (paused)`;
+    }
+    return getDuration(entry.start_time, entry.end_time);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'planned': return 'bg-gray-100 text-gray-800';
       case 'in_progress': return 'bg-yellow-100 text-yellow-800';
+      case 'paused': return 'bg-blue-100 text-blue-800';
       case 'completed': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -194,24 +265,27 @@ export function TimeTracker() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Start Time
+                Hours
               </label>
               <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                type="number"
+                value={durationHours}
+                onChange={(e) => setDurationHours(Math.max(0, parseInt(e.target.value) || 0))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                min="0"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                End Time
+                Minutes
               </label>
               <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
+                type="number"
+                value={durationMinutes}
+                onChange={(e) => setDurationMinutes(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                min="0"
+                max="59"
               />
             </div>
           </div>
@@ -242,9 +316,7 @@ export function TimeTracker() {
               <div>
                 <h3 className="font-medium text-gray-900">{entry.activity}</h3>
                 <p className="text-sm text-gray-500">
-                  {format(parseISO(entry.start_time), 'HH:mm')} - {format(parseISO(entry.end_time), 'HH:mm')}
-                  {' · '}
-                  {getDuration(entry.start_time, entry.end_time)}
+                  {getDurationDisplay(entry)}
                 </p>
               </div>
             </div>
@@ -262,12 +334,30 @@ export function TimeTracker() {
                 </button>
               )}
               {entry.status === 'in_progress' && (
+                <>
+                  <button
+                    onClick={() => updateStatus(entry.id, 'paused')}
+                    className="p-1 text-blue-600 hover:text-blue-700"
+                    title="Pause"
+                  >
+                    <Pause className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => updateStatus(entry.id, 'completed')}
+                    className="p-1 text-green-600 hover:text-green-700"
+                    title="Complete"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+              {entry.status === 'paused' && (
                 <button
-                  onClick={() => updateStatus(entry.id, 'completed')}
-                  className="p-1 text-green-600 hover:text-green-700"
-                  title="Complete"
+                  onClick={() => updateStatus(entry.id, 'in_progress')}
+                  className="p-1 text-yellow-600 hover:text-yellow-700"
+                  title="Resume"
                 >
-                  <Square className="w-4 h-4" />
+                  <Play className="w-4 h-4" />
                 </button>
               )}
               <button

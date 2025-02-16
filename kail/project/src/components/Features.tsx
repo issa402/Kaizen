@@ -7,10 +7,10 @@ export function Features() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            The Science of Small Improvements
+            High Value Improvements
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            1% better every day compounds to 37.8x better in one year. Our journal is designed to make
+            1% better every day compounds to 37.8x better in one year. This journal is designed to make
             this powerful concept work for you.
           </p>
         </div>
@@ -42,7 +42,7 @@ export function Features() {
               Daily Inspiration
             </h3>
             <p className="text-gray-600">
-              Curated content to keep you motivated and focused
+              Content to keep you motivated and focused
             </p>
           </div>
 

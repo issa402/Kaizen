@@ -26,7 +26,7 @@ const SUBSCRIPTION_PLANS = [
   {
     id: 'premium',
     name: 'Premium',
-    price: 9.99,
+    price: 4.99,
     stripeId: import.meta.env.VITE_STRIPE_PREMIUM_PRICE_ID,
     features: [
       { title: 'Daily Journal Entry', included: true },
